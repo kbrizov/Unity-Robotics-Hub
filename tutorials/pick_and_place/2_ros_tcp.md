@@ -155,6 +155,8 @@ To enable communication between Unity and ROS, a TCP endpoint running as a ROS n
 
     - Replace the `Host Name` value with the IP address of your ROS machine. Ensure that the `Host Port` is set to `10000`.
 
+    - If you are going to run ROS services with docker container introduced [below](#the-ros-side), fill `Host Name` and `Override Unity IP` with the loopback IP address `127.0.0.1`.
+
 1. To call the `Publish()` function, a UI element will be added for user input. In the Hierarchy window, right click to add a new UI > Button. Note that this will create a new Canvas parent as well. 
 	> Note: In the `Game` view, you will see the button appear in the bottom left corner as an overlay. In `Scene` view the button will be rendered on a canvas object that may not be visible.
    
@@ -172,26 +174,54 @@ To enable communication between Unity and ROS, a TCP endpoint running as a ROS n
 
 ## The ROS side
 
-> Note: This project was built using the ROS Melodic distro and Python 2.
+> Note: This project has been tested with Python 2 and ROS Melodic, as well as Python 3 and ROS Noetic.
 
-Most of the ROS setup has been provided via the `niryo_moveit` package. This section will describe the `.launch` files and start the necessary ROS nodes for communication.
+Most of the ROS setup has been provided via the `niryo_moveit` package. This section will describe the `.launch` files and start the necessary ROS nodes for communication. Two methods are provideds to launch ROS nodes and services: either using a ROS docker container or doing it manually in your own ROS environment.
 
-1. The provided files require the following packages to be installed; run the following if the packages are not already present:
+### Use Docker Container
+
+1. [Install Docker Engine](https://docs.docker.com/engine/install/)
+
+2. Build the ROS docker image
+
+  ```bash
+  cd /YOUR/UNITY-ROBOTICS-HUB/REPOSITORY/tutorials/pick_and_place &&
+  git submodule update --init --recursive &&
+  docker build -t unity-robotics:pick-and-place -f docker/Dockerfile .
+  ```
+
+3. Run ROS in a new docker container
+
+  ```bash
+  docker run -it --rm -p 10000:10000 -p 5005:5005 unity-robotics:pick-and-place part_2 /bin/bash
+  ```
+
+4. Terminate docker container
+
+  Press `Ctrl + C` or `Cmd + C` to terminate the docker container.
+
+### Manually Setup ROS
+
+1. The provided files require the following packages to be installed. ROS Melodic users should run the following commands if the packages are not already present:
 
    ```bash
    sudo apt-get update && sudo apt-get upgrade
    sudo apt-get install python-pip ros-melodic-robot-state-publisher ros-melodic-moveit ros-melodic-rosbridge-suite ros-melodic-joy ros-melodic-ros-control ros-melodic-ros-controllers ros-melodic-tf2-web-republisher
-   ```
-
-   ```bash
    sudo -H pip install rospkg jsonpickle
    ```
 
-   > In your ROS workspace, find the directory `src/niryo_moveit/scripts`. Note the file `server_endpoint.py`. This script imports the necessary dependencies from tcp_endpoint, defines the TCP host address and port values, and starts the server. `rospy.spin()` ensures the node does not exit until it is shut down.
+   ROS Noetic users should run:
+
+   ```bash
+   sudo apt-get update && sudo apt-get upgrade
+   sudo apt-get install python3-pip ros-noetic-robot-state-publisher ros-noetic-moveit ros-noetic-rosbridge-suite ros-noetic-joy ros-noetic-ros-control ros-noetic-ros-controllers
+   sudo -H pip3 install rospkg jsonpickle
+   ```
+
+   > In your ROS workspace, find the directory `src/niryo_moveit/scripts`. Note the file `server_endpoint.py`. This script imports the necessary dependencies from tcp_endpoint and starts the server. `rospy.spin()` ensures the node does not exit until it is shut down.
 
    ```python
    ...
-   tcp_server = TCPServer(ros_tcp_ip, ros_tcp_port, ros_node_name, source_destination_dict)
    tcp_server.start()
    rospy.spin()
    ...
@@ -203,31 +233,17 @@ Most of the ROS setup has been provided via the `niryo_moveit` package. This sec
 
 1. The ROS parameters will need to be set to your configuration in order to allow the server endpoint to fetch values for the TCP connection. Navigate to `src/niryo_moveit/config/params.yaml` and open the file for editing. You will need to know the IP address of your ROS machine as well as the IP address of the machine running Unity. 
    - The ROS machine IP, i.e. `ROS_IP` should be the same value as the one set as `Host Name` on the RosConnect component in Unity.
-   - Finding the IP address of your local machine (the one running Unity), i.e. `UNITY_IP` depends on your operating system. 
-     - On a Mac, open `System Preferences > Network`. Your IP address should be listed on the active connection.
-     - On Windows, click the Wi-Fi icon on the taskbar, and open `Properties`. Your IP address should be listed near the bottom, next to "IPv4 address."
-
-   - Update the `ROS_IP` and `UNITY_IP` below with the appropriate addresses and copy the contents into the `params.yaml` file.
+   - Update the `ROS_IP` below with the appropriate addresses and copy the contents into the `params.yaml` file.
 
       ```yaml
       ROS_IP: <your ROS IP>
-      ROS_TCP_PORT: 10000
-      UNITY_IP: <your Unity IP>
-      UNITY_SERVER_PORT: 5005
-      rosdistro: 'melodic'
       ```
       
       e.g.
 
       ```yaml
       ROS_IP: 192.168.50.149
-      ROS_TCP_PORT: 10000
-      UNITY_IP: 192.168.50.13
-      UNITY_SERVER_PORT: 5005
-      rosdistro: 'melodic'
       ```
-
-      Ensure that the `ROS_TCP_PORT` is set to 10000, and the `UNITY_SERVER_PORT` is set to 5005.
 
       > Note: Learn more about the server endpoint and ROS parameters [here](../ros_unity_integration/server_endpoint.md).
 
